@@ -30,7 +30,7 @@ def login(usr, psw):
 
     isLogged = cookie['cpIsLogged'] == '1LevelLogged'
 
-    return "loggato: " + str(isLogged)
+    return "Logged: " + str(isLogged)
 
 
 def selectDomain(domain):
@@ -39,7 +39,7 @@ def selectDomain(domain):
    
    response = session.get(url)
 
-   return "Seleziono il dominio: " + str(response.status_code == 200)
+   return "Domain selected: " + str(response.status_code == 200)
 
 def changeDNS(recordName, recordType, newValue):
 
@@ -50,7 +50,7 @@ def changeDNS(recordName, recordType, newValue):
 
 	pageDNS = session.get(urlGet)
    
-        print "richiedo la gestiona avanata dns: " + str(pageDNS.status_code == 200)    
+        print "request for dns page: " + str(pageDNS.status_code == 200)    
    
 	if pageDNS.status_code == 200:
 
@@ -80,7 +80,8 @@ def changeDNS(recordName, recordType, newValue):
 					entryIndexVal = entryIndex
 
 				entryIndex += 1
-
+		
+		# preparing all the data for register. I know, it's ugly.
 		form_data = {
 			'conf': '{"change":{"'+ str(entryIndexVal)+'":{"NAME":"'+recordName+'","VALUE":"'+newValue+'","TYPE":"'+recordType+'","STATE":"","LASTMODIFIED":"","TTL":"900","ID":"'+str(idVal)+'"}}}',
 			'ttls': '{"lower":600,"upper":604800,"zone":900,"default":900}',
@@ -91,7 +92,7 @@ def changeDNS(recordName, recordType, newValue):
 		cookies = session.cookies.get_dict()
 		
 		response = session.post(urlPost, data=form_data, cookies=cookies)
-		print "modifica effettuata"
+		print "saved"
 
 
 if __name__ == '__main__':
