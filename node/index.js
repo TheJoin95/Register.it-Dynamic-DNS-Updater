@@ -65,8 +65,14 @@ async function inputClear(page, selector) {
   }, selector);
 }
 
+async function takeScreenshot(page, options) {
+	if(Object.keys(args).indexOf('debug') !== -1)
+		await page.screenshot(options);
+}
+
 (async () => {
   const browser = await puppeteer.launch({
+  	headless: (Object.keys(args).indexOf('headless') === -1),
   	defaultViewport: {
   		width: 1600,
   		height: 900
@@ -103,14 +109,14 @@ async function inputClear(page, selector) {
   });
   
   console.log('Compiling login form data..');
-  await page.type('.standard-login-module [name="userName"]', args['username']);
-  await page.type('.standard-login-module [name="password"]', args['password']);
+  await page.type('.standard-login-module [name="userName"]', args['username'], {delay: 120});
+  await page.type('.standard-login-module [name="password"]', args['password'], {delay: 120});
   console.log('Submit login form..');
   await page.click('.welcome-container-block .standard-login-area [type="submit"]');
   
   var errorOnLogin = false;
 
-  // await page.screenshot({path: 'before-login.png'});
+  takeScreenshot(page, {path: 'before-login.png'});
   await page.waitForNavigation().then(() => console.log('Logged in succesfully'), (err) => { errorOnLogin = true; console.log('Error on submit');});
   // await page.screenshot({path: 'login.png'});
 
@@ -119,11 +125,12 @@ async function inputClear(page, selector) {
   	console.log('Loading detail page for the domain: ' + domain);
 	  await page.goto(DOMAIN_URL + domain);
 	  await page.waitFor(2000);
+	  takeScreenshot(page, {path: 'doman-page.png'});
 
 	  console.log('Loading dns advanced page..');
 	  await page.goto(DNS_ADVANCED_URL);
 	  await page.waitFor(3000);
-	  // await page.screenshot({path: 'dns-advanced.png'});
+	  takeScreenshot(page, {path: 'dns-advanced.png'});
 
 	  var indexToUpdate = null;
 	  var recordCounter = await page.$$(".recordName");
@@ -162,20 +169,23 @@ async function inputClear(page, selector) {
 	  }
 
 	  if(indexToUpdate == null) {
-	  	await page.click('.btn.add');
+	  	await page.click('.btn.add').catch((err) => console.log('No add button found. Please, enable --debug flag'));
 	  	await page.waitFor(1000);
 
 	  	var newRecordCounter = recordCounter;
-
-	  	await page.type('[name="recordName_' + newRecordCounter + '"]', record.name);
-	  	await page.type('[name="recordValue_' + newRecordCounter + '"]', record.value);
-	  	await page.select('[name="recordType_' + newRecordCounter + '"]', record.type);
-	  	await page.type('[name="recordTTL_' + newRecordCounter + '"]', record.ttl.toString());
+	  	try {
+		  	await page.type('[name="recordName_' + newRecordCounter + '"]', record.name);
+		  	await page.type('[name="recordValue_' + newRecordCounter + '"]', record.value);
+		  	await page.select('[name="recordType_' + newRecordCounter + '"]', record.type);
+		  	await page.type('[name="recordTTL_' + newRecordCounter + '"]', record.ttl.toString());
+	  	}catch(err) {
+	  		console.log('Something went wrong on adding a new DNS record. Please, enable --debug');
+	  	}
 	  }
 		
 		console.log('Updating..');
 	 	await page.click('.submit.btn');
-	 	// await page.screenshot({path: 'before-prinbtn.png', fullPage: true});
+	 	takeScreenshot(page, {path: 'before-applybtn.png', fullPage: true});
 	 	await page.waitFor(1000);
 
 	 	// await page.screenshot({path: 'printbtn.png', fullPage: true});
@@ -185,7 +195,7 @@ async function inputClear(page, selector) {
  		);
 
 	 	await page.waitFor(2000);
-		// await page.screenshot({path: 'updated.png'});
+		takeScreenshot(page, {path: 'updated.png'});
   }
 
   console.log('Window close');
