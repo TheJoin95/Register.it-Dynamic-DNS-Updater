@@ -71,13 +71,23 @@ async function takeScreenshot(page, options) {
 }
 
 (async () => {
-  const browser = await puppeteer.launch({
+
+	const puppeteerConfig = {
   	headless: (Object.keys(args).indexOf('headless') === -1),
   	defaultViewport: {
   		width: 1600,
   		height: 900
   	}
-	});
+	};
+
+	if(args['proxy'] !== undefined) {
+		console.log('Setting proxy ' + args['proxy']);
+		puppeteerConfig['args'] = [
+      '--proxy-server=' + args['proxy']
+    ];
+	}
+
+  const browser = await puppeteer.launch(puppeteerConfig);
 
   const page = await browser.newPage();
   await page.setUserAgent(defaultUA);
