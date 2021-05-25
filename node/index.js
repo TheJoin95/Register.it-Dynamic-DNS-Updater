@@ -11,7 +11,7 @@ process.argv.slice(2).map(function (val) {
 	}
 );
 
-const defaultUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.157 Safari/537.36';
+const defaultUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36';
 const LOGIN_URL = 'https://controlpanel.register.it/index.html';
 const DOMAIN_URL = 'https://controlpanel.register.it/firstLevel/view.html?domain=';
 const DNS_ADVANCED_URL = 'https://controlpanel.register.it/domains/dnsAdvanced.html';
