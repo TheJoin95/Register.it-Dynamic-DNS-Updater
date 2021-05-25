@@ -95,10 +95,13 @@ async function takeScreenshot(page, options) {
   
   console.log('Loading login page');
   await page.goto(LOGIN_URL);
-  await page.waitFor(5000);
+  await page.waitForTimeout(5000);
+
+  await page.click('a[id="CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"]');
+  await page.waitForTimeout(1000);
 
   await page.click('.text-center.title-xs');
-  await page.waitFor(1000);
+  await page.waitForTimeout(1000);
 
   console.log('Faking user interaction..');
   await page.evaluate(async () => {
@@ -119,8 +122,8 @@ async function takeScreenshot(page, options) {
   });
   
   console.log('Compiling login form data..');
-  await page.type('.standard-login-module [name="userName"]', args['username'], {delay: 120});
-  await page.type('.standard-login-module [name="password"]', args['password'], {delay: 120});
+  await page.type('.standard-login-module [name="userName"]', args['username'], {delay: 90});
+  await page.type('.standard-login-module [name="password"]', args['password'], {delay: 90});
   console.log('Submit login form..');
   await page.click('.welcome-container-block .standard-login-area [type="submit"]');
   
@@ -134,12 +137,12 @@ async function takeScreenshot(page, options) {
 		// await page.setJavaScriptEnabled(true);
   	console.log('Loading detail page for the domain: ' + domain);
 	  await page.goto(DOMAIN_URL + domain);
-	  await page.waitFor(2000);
+	  await page.waitForTimeout(2000);
 	  takeScreenshot(page, {path: 'doman-page.png'});
 
 	  console.log('Loading dns advanced page..');
 	  await page.goto(DNS_ADVANCED_URL);
-	  await page.waitFor(3000);
+	  await page.waitForTimeout(3000);
 	  takeScreenshot(page, {path: 'dns-advanced.png'});
 
 	  var indexToUpdate = null;
@@ -180,7 +183,7 @@ async function takeScreenshot(page, options) {
 
 	  if(indexToUpdate == null) {
 	  	await page.click('.btn.add').catch((err) => console.log('No add button found. Please, enable --debug flag'));
-	  	await page.waitFor(1000);
+	  	await page.waitForTimeout(1000);
 
 	  	var newRecordCounter = recordCounter;
 	  	try {
@@ -196,7 +199,7 @@ async function takeScreenshot(page, options) {
 		console.log('Updating..');
 	 	await page.click('.submit.btn');
 	 	takeScreenshot(page, {path: 'before-applybtn.png', fullPage: true});
-	 	await page.waitFor(1000);
+	 	await page.waitForTimeout(1000);
 
 	 	// await page.screenshot({path: 'printbtn.png', fullPage: true});
 	 	await page.click('.pribttn.nm.apply').then(
@@ -204,7 +207,7 @@ async function takeScreenshot(page, options) {
 	 		(err) => console.log('Operation failed')
  		);
 
-	 	await page.waitFor(2000);
+	 	await page.waitForTimeout(2000);
 		takeScreenshot(page, {path: 'updated.png'});
   }
 
