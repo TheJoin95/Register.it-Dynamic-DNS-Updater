@@ -142,7 +142,16 @@ async function takeScreenshot(page, options) {
 
 	  console.log('Loading dns advanced page..');
 	  await page.goto(DNS_ADVANCED_URL);
-	  await page.waitForTimeout(3000);
+	  await page.waitForTimeout(2000);
+	  await page.evaluate( () => {
+			window.scrollBy(0, window.innerHeight);
+	  });
+	  await page.waitForTimeout(200);
+	  await page.evaluate( () => {
+			window.scrollBy(0, window.innerHeight);
+	  });
+	  await page.waitForTimeout(200);
+
 	  takeScreenshot(page, {path: 'dns-advanced.png'});
 
 	  var indexToUpdate = null;
@@ -182,8 +191,9 @@ async function takeScreenshot(page, options) {
 	  }
 
 	  if(indexToUpdate == null) {
+		await page.waitForTimeout(200);
 	  	await page.click('.btn.add').catch((err) => console.log('No add button found. Please, enable --debug flag'));
-	  	await page.waitForTimeout(1000);
+		await page.waitForTimeout(200);
 
 	  	var newRecordCounter = recordCounter;
 	  	try {
@@ -199,7 +209,7 @@ async function takeScreenshot(page, options) {
 		console.log('Updating..');
 	 	await page.click('.submit.btn');
 	 	takeScreenshot(page, {path: 'before-applybtn.png', fullPage: true});
-	 	await page.waitForTimeout(1000);
+	 	await page.waitForTimeout(2000);
 
 	 	// await page.screenshot({path: 'printbtn.png', fullPage: true});
 	 	await page.click('.pribttn.nm.apply').then(
