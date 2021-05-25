@@ -219,6 +219,7 @@ async function takeScreenshot(page, options) {
 
 	 	await page.waitForTimeout(2000);
 		takeScreenshot(page, {path: 'updated.png'});
+		await page.waitForTimeout(200);
   }
 
   console.log('Window close');
