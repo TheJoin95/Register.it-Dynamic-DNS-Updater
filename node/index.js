@@ -1,6 +1,10 @@
 const puppeteer = require('puppeteer-extra');
 const pluginStealth = require("puppeteer-extra-plugin-stealth");
 
+const path = require('path');
+const fs = require('fs');
+
+
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
 	console.log(`Create, update or delete DNS records on Register.it
 
@@ -17,7 +21,8 @@ Args:
   [--oldvalue=RECORD_VALUE]	old value in the record to be updated/deleted
   [--delete]               	delete the name-oldvalue record
   [--debug]                	take screenshot during the process
-  [--headless]          	do not start browser in headless mode
+  [--backup-csv[=path]]    	save DNS configuration csv before and after
+  [--headless]             	do not start browser in headless mode
   [--proxy=proxy-server]   	proxy to use to connect to register.it
 `);
 	return false;
@@ -93,6 +98,10 @@ else {
 if(args['oldvalue'] !== undefined && args['oldvalue'] != '')
 	record['oldValue'] = args['oldvalue'];
 
+var downloadPath = null;
+if(Object.keys(args).indexOf('backup-csv') !== -1) {
+	downloadPath = path.resolve(args['backup-csv'] || './');
+}
 
 async function inputClear(page, selector) {
   await page.evaluate(selector => {
@@ -103,6 +112,38 @@ async function inputClear(page, selector) {
 async function takeScreenshot(page, options) {
 	if(Object.keys(args).indexOf('debug') !== -1)
 		await page.screenshot(options);
+}
+
+
+async function downloadDNSConf(page, suffix='') {
+	if(Object.keys(args).indexOf('backup-csv') !== -1 && downloadPath){
+		await page._client.send('Page.setDownloadBehavior', {
+			behavior: 'allow',
+			downloadPath: downloadPath
+		});
+
+		await page.click('.export.btn');
+		await page.waitForTimeout(2000);
+
+		if (suffix && typeof suffix === 'string') {
+			let oldFile = path.resolve(downloadPath, 'Elenco_record_dns_'+domain+'.csv');
+			let newFile = path.resolve(downloadPath, 'Elenco_record_dns_'+domain+'_'+suffix+'.csv')
+
+			await fs.access(oldFile, fs.W_OK, async (err)=>{
+				if (err) {
+					console.log('Error: downloaded file is not writeable: ', err);
+					return;
+				}
+				await fs.rename(oldFile, newFile, (err)=>{
+					if (err){
+						console.log('Error: could not rename downloaded file: ', err);
+						return;
+					}
+					console.log('Backup file renamed');
+				});
+			})
+		}
+	}
 }
 
 (async () => {
@@ -193,6 +234,8 @@ async function takeScreenshot(page, options) {
 	  var recordCounter = await page.$$(".recordName");
 	  recordCounter = recordCounter.length;
 
+	  downloadDNSConf(page, 'pre');
+
 	  if(record.oldValue !== undefined && record.oldValue !== "") {
 	  	const recordNames  = await page.$$(".recordName");
 	  	const recordValues = await page.$$(".recordValue");
@@ -216,7 +259,6 @@ async function takeScreenshot(page, options) {
 						() => console.log('Deletion succeded'),
 						(err) => console.log('Deletion failed')
 					);
-					await page.waitForTimeout(5000);
 					break;
 				}
 
@@ -257,6 +299,7 @@ async function takeScreenshot(page, options) {
 	  }
 		
 		console.log('Updating..');
+		await page.waitForTimeout(2000);
 	 	await page.click('.submit.btn');
 	 	takeScreenshot(page, {path: 'before-applybtn.png', fullPage: true});
 	 	await page.waitForTimeout(2000);
@@ -267,7 +310,8 @@ async function takeScreenshot(page, options) {
 	 		(err) => console.log('Operation failed')
  		);
 
-	 	await page.waitForTimeout(2000);
+	 	await page.waitForTimeout(4000);
+		await downloadDNSConf(page, 'post');
 		takeScreenshot(page, {path: 'updated.png'});
 		await page.waitForTimeout(200);
   }
