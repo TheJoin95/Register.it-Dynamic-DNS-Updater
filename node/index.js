@@ -1,6 +1,28 @@
 const puppeteer = require('puppeteer-extra');
 const pluginStealth = require("puppeteer-extra-plugin-stealth");
 
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+	console.log(`Create, update or delete DNS records on Register.it
+
+Usage: node index.js args
+
+Args:
+  --username=USERNAME      	register.it username
+  --password=PWD           	register.it password
+  --domain=DOMAIN          	domain of the dns to modify
+  --name=RECORD_NAME       	name of the record to create/update/delete
+  [--value=RECORD_VALUE]   	new value for the created/updated record
+  [--ttl=TTL_>_600]        	new ttl for the created/updated record
+  [--type=RECORD_TYPE]     	new type for the created/updated record
+  [--oldvalue=RECORD_VALUE]	old value in the record to be updated/deleted
+  [--debug]                	take screenshot during the process
+  [--headless]          	do not start browser in headless mode
+  [--proxy=proxy-server]   	proxy to use to connect to register.it
+`);
+	return false;
+}
+
+
 puppeteer.use(pluginStealth());
 
 const args = {};
@@ -97,7 +119,7 @@ async function takeScreenshot(page, options) {
   await page.goto(LOGIN_URL);
   await page.waitForTimeout(5000);
 
-  await page.click('a[id="CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"]');
+  await page.click('button[class="iubenda-cs-accept-btn iubenda-cs-btn-primary"]');
   await page.waitForTimeout(1000);
 
   await page.click('.text-center.title-xs');
