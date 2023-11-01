@@ -1,6 +1,34 @@
 const puppeteer = require('puppeteer-extra');
 const pluginStealth = require("puppeteer-extra-plugin-stealth");
 
+const path = require('path');
+const fs = require('fs');
+
+
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+	console.log(`Create, update or delete DNS records on Register.it
+
+Usage: node index.js args
+
+Args:
+  --username=USERNAME      	register.it username
+  --password=PWD           	register.it password
+  --domain=DOMAIN          	domain of the dns to modify
+  --name=RECORD_NAME       	name of the record to create/update/delete
+  [--value=RECORD_VALUE]   	new value for the created/updated record
+  [--ttl=TTL_>_600]        	new ttl for the created/updated record
+  [--type=RECORD_TYPE]     	new type for the created/updated record
+  [--oldvalue=RECORD_VALUE]	old value in the record to be updated/deleted
+  [--delete]               	delete the name-oldvalue record
+  [--debug]                	take screenshot during the process
+  [--backup-csv[=path]]    	save DNS configuration csv before and after
+  [--headless]             	do not start browser in headless mode
+  [--proxy=proxy-server]   	proxy to use to connect to register.it
+`);
+	return false;
+}
+
+
 puppeteer.use(pluginStealth());
 
 const args = {};
@@ -29,35 +57,51 @@ const availableRecordType = [
 if(
 		args['username'] == '' || args['username'] == undefined ||
 		args['password'] == '' || args['password'] == undefined ||
-		args['name'] == '' || args['name'] == undefined ||
-		args['value'] == '' || args['value'] == undefined ||
-		args['domain'] == '' || args['domain'] == undefined
+		args['domain'] == '' || args['domain'] == undefined ||
+		args['name'] == '' || args['name'] == undefined
 	) {
-	console.log('Error: invalid params. You need to specify: --username, --password, --name, --value, --domain, --type, --ttl');
+	console.log('Error: invalid params. You always need to specify: --username, --password, --domain, --name');
 	return false;
 }
 
 const domain = args['domain'];
 const record = {};
+var isDelete = false;
 
 record['name'] = args['name'];
 record['type'] = args['type'];
 record['value'] = args['value'];
 record['ttl'] = parseInt(args['ttl']);
 
-if(availableRecordType.indexOf(record['type']) === -1) {
-	console.log('Error on type: type not allowed');
-	return false;
+if ( Object.keys(args).includes('delete') ) {
+	isDelete=true;
+	if (!args['oldvalue'] ) {
+		console.log('Error: invalid params. With --delete you need to specify: --oldvalue');
+		return false;
+	}
+}
+else {
+	if ( !args['value'] || !args['ttl'] || !args['type'] ) {
+		console.log('Error: invalid params. You need to specify: --type --value --ttl');
+		return false;
+	}
+	if(availableRecordType.indexOf(record['type']) === -1) {
+		console.log('Error on type: type not allowed');
+		return false;
+	}
+	if(parseInt(args['ttl']) < 600){
+		console.log("Error on ttl: only ttl > 600");
+		return false;
+	}
 }
 
 if(args['oldvalue'] !== undefined && args['oldvalue'] != '')
 	record['oldValue'] = args['oldvalue'];
 
-if(parseInt(args['ttl']) < 600){
-	console.log("Error on ttl: only ttl > 600");
-	return false;
+var downloadPath = null;
+if(Object.keys(args).indexOf('backup-csv') !== -1) {
+	downloadPath = path.resolve(args['backup-csv'] || './');
 }
-
 
 async function inputClear(page, selector) {
   await page.evaluate(selector => {
@@ -68,6 +112,38 @@ async function inputClear(page, selector) {
 async function takeScreenshot(page, options) {
 	if(Object.keys(args).indexOf('debug') !== -1)
 		await page.screenshot(options);
+}
+
+
+async function downloadDNSConf(page, suffix='') {
+	if(Object.keys(args).indexOf('backup-csv') !== -1 && downloadPath){
+		await page._client.send('Page.setDownloadBehavior', {
+			behavior: 'allow',
+			downloadPath: downloadPath
+		});
+
+		await page.click('.export.btn');
+		await page.waitForTimeout(2000);
+
+		if (suffix && typeof suffix === 'string') {
+			let oldFile = path.resolve(downloadPath, 'Elenco_record_dns_'+domain+'.csv');
+			let newFile = path.resolve(downloadPath, 'Elenco_record_dns_'+domain+'_'+suffix+'.csv')
+
+			await fs.access(oldFile, fs.W_OK, async (err)=>{
+				if (err) {
+					console.log('Error: downloaded file is not writeable: ', err);
+					return;
+				}
+				await fs.rename(oldFile, newFile, (err)=>{
+					if (err){
+						console.log('Error: could not rename downloaded file: ', err);
+						return;
+					}
+					console.log('Backup file renamed');
+				});
+			})
+		}
+	}
 }
 
 (async () => {
@@ -97,7 +173,7 @@ async function takeScreenshot(page, options) {
   await page.goto(LOGIN_URL);
   await page.waitForTimeout(5000);
 
-  await page.click('a[id="CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"]');
+  await page.click('button[class="iubenda-cs-accept-btn iubenda-cs-btn-primary"]');
   await page.waitForTimeout(1000);
 
   await page.click('.text-center.title-xs');
@@ -158,17 +234,33 @@ async function takeScreenshot(page, options) {
 	  var recordCounter = await page.$$(".recordName");
 	  recordCounter = recordCounter.length;
 
+	  downloadDNSConf(page, 'pre');
+
 	  if(record.oldValue !== undefined && record.oldValue !== "") {
-	  	const recordNames = await page.$$(".recordName");
+	  	const recordNames  = await page.$$(".recordName");
 	  	const recordValues = await page.$$(".recordValue");
+	  	const recordTypes  = await page.$$(".recordType");
 	  	for(let i in recordNames) {
 	  		let elName = await recordNames[i].getProperty('value');
 	  		elName = await elName.jsonValue();
 	  		let elOldValue = await recordValues[i].getProperty('value');
 	  		elOldValue = await elOldValue.jsonValue();
-	  		
-	  		if(elName == record.name && record.oldValue == elOldValue) {
+			let elOldType = await recordTypes[i].getProperty('value');
+			elOldType = await elOldType.jsonValue();
+
+	  		if(elName === record.name+'.' && elOldValue === (elOldType === 'TXT' ? '"'+record.oldValue+'"' : record.oldValue) ) {
 	  			indexToUpdate = i;
+
+				if (isDelete) {
+					console.log('Deleting record...');
+					await page.click('[name="recordDNS_' + indexToUpdate + '"] .recordRemove');
+					await page.waitForTimeout(2000);
+					await page.click('.pribttn.nm.apply').then(
+						() => console.log('Deletion succeded'),
+						(err) => console.log('Deletion failed')
+					);
+					break;
+				}
 
 			  	if(record.value !== undefined){
 			  		await inputClear(page,'[name="recordValue_' + indexToUpdate + '"]');
@@ -190,7 +282,7 @@ async function takeScreenshot(page, options) {
 	  	}
 	  }
 
-	  if(indexToUpdate == null) {
+	  if(indexToUpdate == null && !isDelete) {
 		await page.waitForTimeout(200);
 	  	await page.click('.btn.add').catch((err) => console.log('No add button found. Please, enable --debug flag'));
 		await page.waitForTimeout(200);
@@ -207,6 +299,7 @@ async function takeScreenshot(page, options) {
 	  }
 		
 		console.log('Updating..');
+		await page.waitForTimeout(2000);
 	 	await page.click('.submit.btn');
 	 	takeScreenshot(page, {path: 'before-applybtn.png', fullPage: true});
 	 	await page.waitForTimeout(2000);
@@ -217,7 +310,8 @@ async function takeScreenshot(page, options) {
 	 		(err) => console.log('Operation failed')
  		);
 
-	 	await page.waitForTimeout(2000);
+	 	await page.waitForTimeout(4000);
+		await downloadDNSConf(page, 'post');
 		takeScreenshot(page, {path: 'updated.png'});
 		await page.waitForTimeout(200);
   }
